@@ -1,29 +1,30 @@
-from __future__ import print_function
+#from __future__ import print_function
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
 import os
-import glob
-import skimage.io as io
-import skimage.transform as trans
+#import glob
+#import skimage.io as io
+#import skimage.transform as trans
 
-Sky = [128,128,128]
-Building = [128,0,0]
-Pole = [192,192,128]
-Road = [128,64,128]
-Pavement = [60,40,222]
-Tree = [128,128,0]
-SignSymbol = [192,128,128]
-Fence = [64,64,128]
-Car = [64,0,128]
-Pedestrian = [64,64,0]
-Bicyclist = [0,128,192]
-Unlabelled = [0,0,0]
+# Sky = [128,128,128]
+# Building = [128,0,0]
+# Pole = [192,192,128]
+# Road = [128,64,128]
+# Pavement = [60,40,222]
+# Tree = [128,128,0]
+# SignSymbol = [192,128,128]
+# Fence = [64,64,128]
+# Car = [64,0,128]
+# Pedestrian = [64,64,0]
+# Bicyclist = [0,128,192]
+# Unlabelled = [0,0,0]
 
-COLOR_DICT = np.array([Sky, Building, Pole, Road, Pavement,
+np.seterr(divide='ignore',invalid = 'ignore')
+'''COLOR_DICT = np.array([Sky, Building, Pole, Road, Pavement,
                           Tree, SignSymbol, Fence, Car, Pedestrian, Bicyclist, Unlabelled])
-
+'''
 #转换数据，
-
+'''
 def adjustData(img,mask,flag_multi_class,num_class):
     if(flag_multi_class):
         img = img / 255
@@ -40,21 +41,25 @@ def adjustData(img,mask,flag_multi_class,num_class):
             #new_mask[index_mask] = 1
             new_mask[mask == i,i] = 1
         if flag_multi_class :
-            new_mask = np.reshape(new_mask,(new_mask.shape[0],new_mask.shape[1]*new_mask.shape[2],new_mask.shape[3])) 
+            new_mask = np.reshape(new_mask,(new_mask.shape[0],new_mask.shape[1]*new_mask.shape[2],new_mask.shape[3]))
         else:
             new_mask = np.reshape(new_mask,(new_mask.shape[0]*new_mask.shape[1],new_mask.shape[2]))
         mask = new_mask
-    elif(np.max(img) > 1 ): # 说明img 还没接受处理  
+    elif(np.max(img) > 1 ): # 说明img 还没接受处理
         img = img / 255
         mask = mask /255
         #二值化
-        mask[mask > 0.5] = 1  
+        mask[mask > 0.5] = 1
         mask[mask <= 0.5] = 0
     return (img,mask)
 # 关于图像领域的 /255 这是为了在程序显示时，将范围变成[0，1]之间，因为图片信
 #息的数值矩阵类型为unit8型，在0~255范围内，而在数据处理时使用double型，当大于1时就会被显示成白色，不能有效表达图片信息。
-# 除以255后，图片矩阵的就变成0~1之间的double型，这样才可以正确表达图片信息。 
-
+# 除以255后，图片矩阵的就变成0~1之间的double型，这样才可以正确表达图片信息。
+'''
+def adjustData(img,mask):
+    img = (img- np.min(img))/(np.max(img)-np.min(img))
+    mask = (mask - np.min(img))/(np.max(img)-np.min(img))
+    return (img, mask)
 
 def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image_color_mode = "grayscale",
                     mask_color_mode = "grayscale",image_save_prefix  = "image",mask_save_prefix  = "truth",
@@ -64,13 +69,14 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
     use the same seed for image_datagen and mask_datagen to ensure the transformation for image and mask is the same
     if you want to visualize the results of generator, set save_to_dir = "your path"
     '''
+    #把增强填入参数变成增强数据生成器
     image_datagen = ImageDataGenerator(**aug_dict)
     mask_datagen = ImageDataGenerator(**aug_dict)
     #数据生成器将训练数据从目录中提取出来，进行流处理，可以每次产生一个数据
     image_generator = image_datagen.flow_from_directory(
-        train_path,                                         
+        train_path,
         classes = [image_folder],                   #图像的根目录下的image目标目录文件
-        class_mode =None,                         
+        class_mode =None,
         color_mode = image_color_mode,              #缺省 grayscale 灰度图
         target_size = target_size,                  #（256，256）
         batch_size = batch_size,                    #每批大小
@@ -87,14 +93,15 @@ def trainGenerator(batch_size,train_path,image_folder,mask_folder,aug_dict,image
         save_to_dir = save_to_dir,                  #
         save_prefix  = mask_save_prefix,            #
         seed = seed)                                       #使用同一数据增强随机种子
-    
+
     train_generator = zip(image_generator, mask_generator)  #训练完zip打包，目的是生成一个可以同时丢出数据的生成器
-    
+
     for (img,mask) in train_generator:
-      #  img,mask = adjustData(img,mask,flag_multi_class,num_class)
+        #img,mask = adjustData(img,mask,flag_multi_class,num_class)
+        img,mask = adjustData(img,mask)
         yield (img,mask)
 #这里使用 yield 的解释，配合生成器进行批提供数据给 model.fit_generator
-    
+
 
 
 def testGenerator(batch_size,train_path,image_folder,mask_folder,image_color_mode = "grayscale",
@@ -110,9 +117,9 @@ def testGenerator(batch_size,train_path,image_folder,mask_folder,image_color_mod
     mask_datagen = ImageDataGenerator(rescale= 1./255)
     #数据生成器将训练数据从目录中提取出来，进行流处理，可以每次产生一个数据
     image_generator = image_datagen.flow_from_directory(
-        train_path,                                         
+        train_path,
         classes = [image_folder],                   #图像的根目录下的image目标目录文件
-        class_mode = None,                       
+        class_mode = None,
         color_mode = image_color_mode,              #缺省 grayscale 灰度图
         target_size = target_size,                  #（256，256）
         batch_size = batch_size,                    #每批大小
@@ -122,7 +129,7 @@ def testGenerator(batch_size,train_path,image_folder,mask_folder,image_color_mod
     mask_generator = mask_datagen.flow_from_directory(
         train_path,
         classes = [mask_folder],                    #图像的根目录下的mask目标目录文件
-        class_mode = None,                      
+        class_mode = None,
         color_mode = mask_color_mode,               #
         target_size = target_size,                  #
         batch_size = batch_size,                    #
@@ -130,14 +137,15 @@ def testGenerator(batch_size,train_path,image_folder,mask_folder,image_color_mod
         save_prefix  = mask_save_prefix,            #
         seed = seed)                                #使用同一数据增强随机种子
     test_generator = zip(image_generator, mask_generator)  #训练完zip打包，可能因为比较大？这个探讨
-    
+
     for (img,mask) in test_generator:
     #    img,mask = adjustData(img,mask,flag_multi_class,num_class)
+        img,mask = adjustData(img,mask)
         yield (img,mask)
 
-    
 
-'''
+
+
 def geneTrainNpy(image_path,mask_path,flag_multi_class = False,num_class = 2,image_prefix = "image",mask_prefix = "mask",image_as_gray = True,mask_as_gray = True):
    #获得所有image前缀的.png文件
     image_name_arr = glob.glob(os.path.join(image_path,"%s*.png"%image_prefix))
@@ -172,4 +180,3 @@ def saveResult(save_path,npyfile,flag_multi_class = False,num_class = 2):
     for i,item in enumerate(npyfile):
         img = labelVisualize(num_class,COLOR_DICT,item) if flag_multi_class else item[:,:,0]
         io.imsave(os.path.join(save_path,"%d_predict.png"%i),img)
-'''
